@@ -1,0 +1,55 @@
+trigger:
+- master
+
+pr:
+- '*'
+
+pool:
+ vmImage: 'windows-latest'
+
+variables:
+  solution: '**/*.sln'
+  buildPlatform: 'Any CPU'
+  buildConfiguration: 'Release'
+
+steps:
+- task: UseDotNet@2
+  inputs:
+     packageType: 'sdk'
+     version: '5.x'
+     installationPath: $(Agent.ToolsDirectory)/dotnet
+
+- task: DotNetCoreCLI@2
+  displayName: 'Restore Nuget Packages'
+  inputs:
+    command: 'restore'
+    projects: '$(solution)'
+
+- task: SonarSource.sonarcloud.14d9cde6-c1da-4d55-aa01-2965cd301255.SonarCloudPrepare@1
+  displayName: 'Prepare analysis on SonarCloud'
+  inputs:
+    SonarCloud: 'Azure-SonarCloud-Connection'
+    organization: imnitishsonarcloud
+    projectKey: tcs031023.imnitishsonarcloud
+    projectName: 'sonarproject tcs031023'
+
+- task: DotNetCoreCLI@2
+  displayName: 'Build'
+  inputs:
+     command: 'build'
+     projects: '$(solution)'
+     arguments: '--configuration $(buildConfiguration)'  
+
+- task: PublishPipelineArtifact@1
+  displayName: 'Publish Artifact'
+  inputs:
+     targetPath: '$(Build.ArtifactStagingDirectory)/'
+     artifact: 'drop'
+     publishLocation: 'pipeline'
+
+- task: SonarSource.sonarcloud.ce096e50-6155-4de8-8800-4221aaeed4a1.SonarCloudAnalyze@1
+  displayName: 'Run Code Analysis'
+
+  steps:
+- task: SonarSource.sonarcloud.38b27399-a642-40af-bb7d-9971f69712e8.SonarCloudPublish@1
+  displayName: 'Publish Quality Gate Result'
